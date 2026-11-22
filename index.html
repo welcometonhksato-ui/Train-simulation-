@@ -1,0 +1,1772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Classroom & Exhaust Fan Airflow Simulation</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: #11161d;
+      color: #e6edf3;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Control Panel */
+    .panel {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      width: 312px;
+      max-height: calc(100vh - 28px);
+      overflow-y: auto;
+      background: rgba(17, 23, 31, 0.86);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      z-index: 10;
+    }
+
+    .panel::-webkit-scrollbar {
+      width: 5px;
+    }
+    .panel::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 4px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      color: #ffffff;
+    }
+
+    .panel-sub {
+      font-size: 11px;
+      color: #8b9bb0;
+      margin-top: 2px;
+    }
+
+    .section {
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .section:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #8da2ba;
+      margin-bottom: 8px;
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    button {
+      background: rgba(255, 255, 255, 0.07);
+      color: #dce4ee;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 7px;
+      padding: 7px 8px;
+      font-size: 11.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    button.active {
+      background: #2563eb;
+      border-color: #60a5fa;
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .fan-control {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+    }
+
+    .fan-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .fan-name {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .dir-pill {
+      padding: 3px 8px;
+      font-size: 10.5px;
+      border-radius: 99px;
+      font-weight: 600;
+    }
+
+    .dir-exhaust {
+      background: rgba(239, 68, 68, 0.22);
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #fca5a5;
+    }
+
+    .dir-intake {
+      background: rgba(34, 197, 94, 0.22);
+      border-color: rgba(34, 197, 94, 0.5);
+      color: #86efac;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: #3b82f6;
+      cursor: pointer;
+    }
+
+    .val-badge {
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      min-width: 36px;
+      text-align: right;
+      color: #b7c6d8;
+    }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 7px;
+      font-size: 12px;
+    }
+
+    .toggle-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      display: inline-block;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-toggle {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.16);
+      border-radius: 20px;
+      transition: 0.2s;
+    }
+
+    .slider-toggle:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+
+    .switch input:checked + .slider-toggle {
+      background: #2563eb;
+    }
+
+    .switch input:checked + .slider-toggle:before {
+      transform: translateX(16px);
+    }
+
+    /* Telemetry & Legend */
+    .hud-right {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .card {
+      background: rgba(17, 23, 31, 0.84);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 10px 14px;
+      min-width: 215px;
+      pointer-events: auto;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .stat-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .stat-label {
+      color: #8da2ba;
+    }
+
+    .stat-val {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: #f0f6fc;
+    }
+
+    .legend-bar {
+      height: 9px;
+      border-radius: 5px;
+      background: linear-gradient(90deg, #1d4ed8 0%, #06b6d4 35%, #22c55e 65%, #f59e0b 85%, #ef4444 100%);
+      margin: 6px 0 4px;
+    }
+
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #9cb0c7;
+    }
+
+    .help-tip {
+      position: fixed;
+      bottom: 12px;
+      right: 14px;
+      background: rgba(17, 23, 31, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 6px 11px;
+      font-size: 11px;
+      color: #9fb1c6;
+      z-index: 10;
+    }
+
+    #collapse-btn {
+      padding: 3px 8px;
+      font-size: 11px;
+    }
+
+    .panel.collapsed .panel-body {
+      display: none;
+    }
+  </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <!-- Left Control Panel -->
+  <div class="panel" id="control-panel">
+    <div class="panel-header">
+      <div>
+        <div class="panel-title">3D Room Airflow Simulator</div>
+        <div class="panel-sub">10.8m × 12.0m × 3.3m Wide Room</div>
+      </div>
+      <button id="collapse-btn">Hide</button>
+    </div>
+
+    <div class="panel-body">
+      <div class="section">
+        <div class="section-label">Ventilation Presets</div>
+        <div class="btn-grid">
+          <button id="preset-exhaust" class="active">Both Exhaust</button>
+          <button id="preset-intake">Both Intake</button>
+          <button id="preset-pushpull">Push-Pull Loop</button>
+          <button id="preset-off">Fans Off</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Back Window Exhaust Fans</div>
+        <div class="fan-control">
+          <div class="fan-row">
+            <span class="fan-name">Left Back Fan</span>
+            <button id="left-dir" class="dir-pill dir-exhaust">EXHAUST (OUT)</button>
+          </div>
+          <div class="slider-row">
+            <input type="range" id="left-speed" min="0" max="100" value="85" />
+            <span class="val-badge" id="left-speed-val">85%</span>
+          </div>
+        </div>
+
+        <div class="fan-control" style="margin-bottom: 0;">
+          <div class="fan-row">
+            <span class="fan-name">Right Back Fan</span>
+            <button id="right-dir" class="dir-pill dir-exhaust">EXHAUST (OUT)</button>
+          </div>
+          <div class="slider-row">
+            <input type="range" id="right-speed" min="0" max="100" value="85" />
+            <span class="val-badge" id="right-speed-val">85%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Door, Window & Cutaway</div>
+        <div class="toggle-row">
+          <span>Front Door Open (Air Intake)</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-door" checked />
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <span>Right 70% Window Open</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-right-window" />
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <span>Cutaway Roof & Blank Side</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-cutaway" checked />
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Airflow Visualization</div>
+        <div class="toggle-row">
+          <span>Airflow Stream Trails</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-particles" checked />
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <span>3D Velocity Vector Grid</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-vectors" />
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">Camera Views</div>
+        <div class="btn-grid">
+          <button id="cam-iso" class="active">3D Cutaway</button>
+          <button id="cam-front">Facing Front Wall</button>
+          <button id="cam-back">Facing Back Fans</button>
+          <button id="cam-plan">Top Floor Plan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Telemetry & Speed Legend -->
+  <div class="hud-right">
+    <div class="card">
+      <div class="section-label" style="margin-bottom: 6px;">Airflow Telemetry</div>
+      <div class="stat-row">
+        <span class="stat-label">Room Volume</span>
+        <span class="stat-val">427.7 m³</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Fan Flow Rate</span>
+        <span class="stat-val" id="stat-flow">0 m³/h</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Air Changes / Hr</span>
+        <span class="stat-val" id="stat-ach">0.0 ACH</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Mean Air Speed</span>
+        <span class="stat-val" id="stat-vel">0.00 m/s</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label" style="margin-bottom: 2px;">Air Velocity (m/s)</div>
+      <div class="legend-bar"></div>
+      <div class="legend-labels">
+        <span>0.0</span>
+        <span>0.8</span>
+        <span>1.6</span>
+        <span>2.5+</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="help-tip">Drag: Orbit · Right-Drag: Pan · Scroll: Zoom</div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/OrbitControls.js";
+
+    // =========================================================================
+    // 1. ROOM DIMENSIONS & STATE
+    // =========================================================================
+    const ROOM_W = 10.8; // X: -5.4 to +5.4
+    const ROOM_H = 3.3;  // Y:  0.0 to  3.3
+    const ROOM_D = 12.0; // Z: -6.0 to +6.0
+
+    // Orientation:
+    // - Back Wall (with 3x2 window & 2 exhaust fans) at Z = -6.0m
+    // - Front Wall (with right-side open door, ViewBoard & Whiteboard) at Z = +6.0m
+    // - Facing Front Wall (+Z):
+    //     * Left Wall (+X) -> Solid blank wall (NO window)
+    //     * Right Wall (-X) -> Huge 70% single-frame window
+
+    const state = {
+      leftFan: { speed: 0.85, dir: -1 },
+      rightFan: { speed: 0.85, dir: -1 },
+      doorOpen: true,
+      rightWindowOpen: false,
+      cutaway: true,
+      showParticles: true,
+      showVectors: false
+    };
+
+    // =========================================================================
+    // 2. THREE.JS SCENE, CAMERA, RENDERER
+    // =========================================================================
+    const container = document.getElementById("canvas-container");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x161c24);
+    scene.fog = new THREE.Fog(0x161c24, 30, 68);
+
+    const camera = new THREE.PerspectiveCamera(
+      48,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      140
+    );
+    camera.position.set(12.5, 8.2, 2.2);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.target.set(-0.5, 1.4, 0);
+
+    // Lighting
+    const hemiLight = new THREE.HemisphereLight(0xf3f7ff, 0x3b424d, 0.92);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff8eb, 1.2);
+    sunLight.position.set(-10, 13, -7);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(2048, 2048);
+    sunLight.shadow.camera.near = 1;
+    sunLight.shadow.camera.far = 38;
+    sunLight.shadow.camera.left = -12;
+    sunLight.shadow.camera.right = 12;
+    sunLight.shadow.camera.top = 12;
+    sunLight.shadow.camera.bottom = -12;
+    scene.add(sunLight);
+
+    for (const lx of [-2.4, 2.4]) {
+      for (const lz of [-2.8, 2.8]) {
+        const pt = new THREE.PointLight(0xf4f9ff, 0.85, 15, 1.3);
+        pt.position.set(lx, ROOM_H - 0.2, lz);
+        scene.add(pt);
+      }
+    }
+
+    // Ground & grid
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(70, 70),
+      new THREE.MeshStandardMaterial({ color: 0x1b222b, roughness: 0.95 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.02;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const gridHelper = new THREE.GridHelper(40, 40, 0x2f3b4a, 0x222a35);
+    gridHelper.position.y = -0.01;
+    scene.add(gridHelper);
+
+    // =========================================================================
+    // 3. BUILD THE ROOM, RIGHT DOOR ONLY, BOARDS & WINDOWS
+    // =========================================================================
+    const roomGroup = new THREE.Group();
+    scene.add(roomGroup);
+
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0xd6d8d4,
+      roughness: 0.85,
+      side: THREE.DoubleSide
+    });
+    const blankCutawayWallMat = new THREE.MeshStandardMaterial({
+      color: 0xd6d8d4,
+      roughness: 0.85,
+      transparent: true,
+      opacity: 0.14,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x9aa0a6,
+      roughness: 0.78,
+      metalness: 0.05
+    });
+    const frameMat = new THREE.MeshStandardMaterial({
+      color: 0x2e343b,
+      roughness: 0.45,
+      metalness: 0.35
+    });
+    const glassMat = new THREE.MeshPhysicalMaterial({
+      color: 0xaad4f5,
+      transparent: true,
+      opacity: 0.24,
+      roughness: 0.08,
+      metalness: 0.1,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+
+    const WALL_T = 0.16;
+
+    // Concrete Floor
+    const floor = new THREE.Mesh(
+      new THREE.BoxGeometry(ROOM_W + WALL_T * 2, 0.14, ROOM_D + WALL_T * 2),
+      floorMat
+    );
+    floor.position.y = -0.07;
+    floor.receiveShadow = true;
+    roomGroup.add(floor);
+
+    // Ceiling Group (hidden in Cutaway mode)
+    const ceilingGroup = new THREE.Group();
+    roomGroup.add(ceilingGroup);
+
+    const ceiling = new THREE.Mesh(
+      new THREE.BoxGeometry(ROOM_W + WALL_T * 2, 0.14, ROOM_D + WALL_T * 2),
+      wallMat
+    );
+    ceiling.position.y = ROOM_H + 0.07;
+    ceilingGroup.add(ceiling);
+
+    for (const lx of [-2.4, 2.4]) {
+      for (const lz of [-2.8, 2.8]) {
+        const strip = new THREE.Mesh(
+          new THREE.BoxGeometry(1.8, 0.05, 0.18),
+          new THREE.MeshBasicMaterial({ color: 0xf8fbff })
+        );
+        strip.position.set(lx, ROOM_H - 0.03, lz);
+        ceilingGroup.add(strip);
+      }
+    }
+
+    function buildWallWithOpenings(w, h, openings, mat = wallMat) {
+      const group = new THREE.Group();
+      const sorted = [...openings].sort((a, b) => a.cx - b.cx);
+      let cursorX = -w / 2;
+
+      for (const op of sorted) {
+        const leftEdge = op.cx - op.ow / 2;
+        const rightEdge = op.cx + op.ow / 2;
+
+        const segW = leftEdge - cursorX;
+        if (segW > 0.01) {
+          const m = new THREE.Mesh(new THREE.BoxGeometry(segW, h, WALL_T), mat);
+          m.position.set(cursorX + segW / 2, h / 2, 0);
+          m.castShadow = true;
+          m.receiveShadow = true;
+          group.add(m);
+        }
+
+        const botH = op.cy - op.oh / 2;
+        if (botH > 0.01) {
+          const m = new THREE.Mesh(new THREE.BoxGeometry(op.ow, botH, WALL_T), mat);
+          m.position.set(op.cx, botH / 2, 0);
+          m.castShadow = true;
+          m.receiveShadow = true;
+          group.add(m);
+        }
+
+        const topEdge = op.cy + op.oh / 2;
+        const topH = h - topEdge;
+        if (topH > 0.01) {
+          const m = new THREE.Mesh(new THREE.BoxGeometry(op.ow, topH, WALL_T), mat);
+          m.position.set(op.cx, h - topH / 2, 0);
+          m.castShadow = true;
+          m.receiveShadow = true;
+          group.add(m);
+        }
+
+        cursorX = rightEdge;
+      }
+
+      const endW = w / 2 - cursorX;
+      if (endW > 0.01) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(endW, h, WALL_T), mat);
+        m.position.set(cursorX + endW / 2, h / 2, 0);
+        m.castShadow = true;
+        m.receiveShadow = true;
+        group.add(m);
+      }
+
+      return group;
+    }
+
+    // -------------------------------------------------------------------------
+    // A. FRONT WALL (Z = +6.0m): ONLY RIGHT DOOR (Left Door Removed) + BOARDS
+    // -------------------------------------------------------------------------
+    const doorW = 1.0;
+    const doorH = 2.2;
+    const doorRightX = -4.55; // Kept on right side when facing front wall (+Z)
+
+    const frontWall = buildWallWithOpenings(ROOM_W + WALL_T * 2, ROOM_H, [
+      { cx: doorRightX, cy: doorH / 2, ow: doorW, oh: doorH }
+    ]);
+    frontWall.position.z = ROOM_D / 2 + WALL_T / 2;
+    roomGroup.add(frontWall);
+
+    function createDoorAssembly(cx, hingeSide) {
+      const doorContainer = new THREE.Group();
+      doorContainer.position.set(cx, 0, ROOM_D / 2 + WALL_T / 2);
+
+      const jambT = 0.05;
+      const dFrameMat = new THREE.MeshStandardMaterial({ color: 0x3b3530, roughness: 0.6 });
+      const topJ = new THREE.Mesh(new THREE.BoxGeometry(doorW, jambT, WALL_T + 0.03), dFrameMat);
+      topJ.position.set(0, doorH - jambT / 2, 0);
+      const leftJ = new THREE.Mesh(new THREE.BoxGeometry(jambT, doorH, WALL_T + 0.03), dFrameMat);
+      leftJ.position.set(-doorW / 2 + jambT / 2, doorH / 2, 0);
+      const rightJ = leftJ.clone();
+      rightJ.position.x = doorW / 2 - jambT / 2;
+      doorContainer.add(topJ, leftJ, rightJ);
+
+      const leafW = doorW - jambT * 2;
+      const leafH = doorH - jambT;
+      const leafPivot = new THREE.Group();
+      leafPivot.position.set(hingeSide * (leafW / 2), 0, -WALL_T / 2);
+
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0xa67c52, roughness: 0.62 });
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(leafW, leafH, 0.045), leafMat);
+      leaf.position.set(-hingeSide * (leafW / 2), leafH / 2, 0);
+      leaf.castShadow = true;
+      leaf.receiveShadow = true;
+      leafPivot.add(leaf);
+
+      const handleMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.8, roughness: 0.25 });
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.025, 0.09), handleMat);
+      handle.position.set(-hingeSide * (leafW - 0.1), 1.0, 0);
+      leafPivot.add(handle);
+
+      doorContainer.add(leafPivot);
+      roomGroup.add(doorContainer);
+      return leafPivot;
+    }
+
+    const rightDoorPivot = createDoorAssembly(doorRightX, -1);
+
+    // Center of Front Wall: ViewBoard (-X) + 0.28m gap + Whiteboard (+X)
+    const frontBoardZ = ROOM_D / 2 - 0.025;
+    const boardCenterY = 1.55;
+
+    // 1. ViewBoard (smaller)
+    const vbW = 1.65;
+    const vbH = 1.0;
+    const vbX = -2.365 + vbW / 2; // -1.54m
+
+    const vbCanvas = document.createElement("canvas");
+    vbCanvas.width = 512;
+    vbCanvas.height = 320;
+    const vctx = vbCanvas.getContext("2d");
+    const grad = vctx.createLinearGradient(0, 0, 512, 320);
+    grad.addColorStop(0, "#10233d");
+    grad.addColorStop(1, "#1e3a5f");
+    vctx.fillStyle = grad;
+    vctx.fillRect(0, 0, 512, 320);
+    vctx.fillStyle = "rgba(255,255,255,0.12)";
+    vctx.fillRect(24, 24, 464, 44);
+    vctx.fillStyle = "rgba(255,255,255,0.85)";
+    vctx.font = "bold 24px sans-serif";
+    vctx.fillText("ViewBoard", 38, 54);
+    vctx.fillStyle = "rgba(96,165,250,0.28)";
+    vctx.fillRect(24, 88, 280, 180);
+    vctx.fillStyle = "rgba(255,255,255,0.15)";
+    vctx.fillRect(324, 88, 164, 82);
+    vctx.fillRect(324, 186, 164, 82);
+    const vbTex = new THREE.CanvasTexture(vbCanvas);
+
+    const vbGroup = new THREE.Group();
+    vbGroup.position.set(vbX, boardCenterY, frontBoardZ - 0.015);
+
+    const vbBezel = new THREE.Mesh(
+      new THREE.BoxGeometry(vbW + 0.07, vbH + 0.08, 0.055),
+      new THREE.MeshStandardMaterial({ color: 0x1b1f24, roughness: 0.45, metalness: 0.25 })
+    );
+    vbBezel.castShadow = true;
+    vbGroup.add(vbBezel);
+
+    const vbScreen = new THREE.Mesh(
+      new THREE.PlaneGeometry(vbW, vbH),
+      new THREE.MeshStandardMaterial({
+        map: vbTex,
+        emissive: 0x0d1b2e,
+        emissiveIntensity: 0.55,
+        roughness: 0.15
+      })
+    );
+    vbScreen.rotation.y = Math.PI;
+    vbScreen.position.z = -0.029;
+    vbGroup.add(vbScreen);
+    roomGroup.add(vbGroup);
+
+    // 2. Whiteboard (bigger, 0.28m gap)
+    const wbW = 2.8;
+    const wbH = 1.3;
+    const wbX = 2.365 - wbW / 2; // +0.965m
+
+    const wbGroup = new THREE.Group();
+    wbGroup.position.set(wbX, boardCenterY, frontBoardZ);
+
+    const wbFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(wbW + 0.06, wbH + 0.06, 0.03),
+      new THREE.MeshStandardMaterial({ color: 0xc0c6ce, metalness: 0.5, roughness: 0.35 })
+    );
+    wbGroup.add(wbFrame);
+
+    const wbSurface = new THREE.Mesh(
+      new THREE.BoxGeometry(wbW, wbH, 0.036),
+      new THREE.MeshStandardMaterial({ color: 0xf9fafb, roughness: 0.2, metalness: 0.05 })
+    );
+    wbGroup.add(wbSurface);
+
+    const wbTray = new THREE.Mesh(
+      new THREE.BoxGeometry(wbW * 0.7, 0.03, 0.07),
+      new THREE.MeshStandardMaterial({ color: 0xaab2bd, metalness: 0.5, roughness: 0.35 })
+    );
+    wbTray.position.set(0, -wbH / 2 - 0.015, -0.025);
+    wbGroup.add(wbTray);
+    roomGroup.add(wbGroup);
+
+    // -------------------------------------------------------------------------
+    // B. BACK WALL (Z = -6.0m): 3x2 WINDOW & 2 EXHAUST FANS
+    // -------------------------------------------------------------------------
+    const winW = 7.4;
+    const winH = 2.4;
+    const winSillY = 0.7;
+    const winCenterY = winSillY + winH / 2;
+
+    const backWall = buildWallWithOpenings(ROOM_W + WALL_T * 2, ROOM_H, [
+      { cx: 0, cy: winCenterY, ow: winW, oh: winH }
+    ]);
+    backWall.position.z = -ROOM_D / 2 - WALL_T / 2;
+    roomGroup.add(backWall);
+
+    const winGroup = new THREE.Group();
+    winGroup.position.set(0, 0, -ROOM_D / 2 - WALL_T / 2);
+    roomGroup.add(winGroup);
+
+    const frameDepth = WALL_T + 0.04;
+    const barThick = 0.065;
+    const colSideW = 0.95;
+    const colCenterW = winW - colSideW * 2;
+    const rowTopH = 0.95;
+    const rowBotH = winH - rowTopH;
+    const transY = winSillY + rowBotH;
+
+    function addBackFrameBar(x, y, z, w, h, d) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
+      mesh.position.set(x, y, z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      winGroup.add(mesh);
+    }
+
+    addBackFrameBar(0, winSillY + barThick / 2, 0, winW, barThick, frameDepth + 0.04);
+    addBackFrameBar(0, winSillY + winH - barThick / 2, 0, winW, barThick, frameDepth);
+    addBackFrameBar(-winW / 2 + barThick / 2, winCenterY, 0, barThick, winH, frameDepth);
+    addBackFrameBar(winW / 2 - barThick / 2, winCenterY, 0, barThick, winH, frameDepth);
+    addBackFrameBar(0, transY, 0, winW, barThick, frameDepth);
+
+    const leftMullionX = -winW / 2 + colSideW;
+    const rightMullionX = winW / 2 - colSideW;
+    addBackFrameBar(leftMullionX, winCenterY, 0, barThick, winH, frameDepth);
+    addBackFrameBar(rightMullionX, winCenterY, 0, barThick, winH, frameDepth);
+
+    function addBackGlass(x, y, w, h) {
+      const g = new THREE.Mesh(new THREE.PlaneGeometry(w, h), glassMat);
+      g.position.set(x, y, 0);
+      winGroup.add(g);
+    }
+    addBackGlass(-winW / 2 + colSideW / 2, winSillY + rowBotH / 2, colSideW - barThick, rowBotH - barThick);
+    addBackGlass(0, winSillY + rowBotH / 2, colCenterW - barThick, rowBotH - barThick);
+    addBackGlass(winW / 2 - colSideW / 2, winSillY + rowBotH / 2, colSideW - barThick, rowBotH - barThick);
+    addBackGlass(0, transY + rowTopH / 2, colCenterW - barThick, rowTopH - barThick);
+
+    const fanLeftCenterX = -winW / 2 + colSideW / 2;   // -3.225m
+    const fanRightCenterX = winW / 2 - colSideW / 2;   // +3.225m
+    const fanCenterY = transY + rowTopH / 2;           //  2.625m
+
+    function createFanUnit(x, y, z) {
+      const fanGroup = new THREE.Group();
+      fanGroup.position.set(x, y, z);
+
+      const boxSize = colSideW - barThick - 0.02;
+      const casingMat = new THREE.MeshStandardMaterial({
+        color: 0xe6eaee,
+        roughness: 0.45,
+        metalness: 0.1
+      });
+      const darkRimMat = new THREE.MeshStandardMaterial({
+        color: 0x363d47,
+        roughness: 0.6
+      });
+
+      const borderT = 0.1;
+      const depth = 0.2;
+      const topB = new THREE.Mesh(new THREE.BoxGeometry(boxSize, borderT, depth), casingMat);
+      topB.position.y = boxSize / 2 - borderT / 2;
+      const botB = topB.clone();
+      botB.position.y = -boxSize / 2 + borderT / 2;
+      const leftB = new THREE.Mesh(new THREE.BoxGeometry(borderT, boxSize - borderT * 2, depth), casingMat);
+      leftB.position.x = -boxSize / 2 + borderT / 2;
+      const rightB = leftB.clone();
+      rightB.position.x = boxSize / 2 - borderT / 2;
+      fanGroup.add(topB, botB, leftB, rightB);
+
+      const shroud = new THREE.Mesh(
+        new THREE.TorusGeometry(boxSize * 0.39, 0.038, 12, 32),
+        casingMat
+      );
+      shroud.position.z = 0.065;
+      fanGroup.add(shroud);
+
+      const shroudBack = shroud.clone();
+      shroudBack.position.z = -0.065;
+      fanGroup.add(shroudBack);
+
+      const rotor = new THREE.Group();
+      const hub = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.09, 0.09, 20),
+        darkRimMat
+      );
+      hub.rotation.x = Math.PI / 2;
+      rotor.add(hub);
+
+      const bladeMat = new THREE.MeshStandardMaterial({
+        color: 0xcfd6de,
+        roughness: 0.35,
+        metalness: 0.25,
+        side: THREE.DoubleSide
+      });
+
+      const bladeCount = 5;
+      for (let i = 0; i < bladeCount; i++) {
+        const bladePivot = new THREE.Group();
+        bladePivot.rotation.z = (i / bladeCount) * Math.PI * 2;
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.24, 0.014), bladeMat);
+        blade.position.y = 0.205;
+        blade.rotation.y = 0.42;
+        bladePivot.add(blade);
+        rotor.add(bladePivot);
+      }
+
+      fanGroup.add(rotor);
+      winGroup.add(fanGroup);
+      return { group: fanGroup, rotor };
+    }
+
+    const leftFanMesh = createFanUnit(fanLeftCenterX, fanCenterY, 0);
+    const rightFanMesh = createFanUnit(fanRightCenterX, fanCenterY, 0);
+
+    // -------------------------------------------------------------------------
+    // C. SIDE WALLS
+    //    - Left Wall (+X): Solid blank wall (no window)
+    //    - Right Wall (-X): 70% single-frame window
+    // -------------------------------------------------------------------------
+    const rightWinW = ROOM_D * 0.70; // 8.40m
+    const rightWinH = 2.25;
+    const rightWinSillY = 0.85;
+    const rightWinCenterY = rightWinSillY + rightWinH / 2;
+
+    const rightWall = buildWallWithOpenings(ROOM_D, ROOM_H, [
+      { cx: 0, cy: rightWinCenterY, ow: rightWinW, oh: rightWinH }
+    ]);
+    rightWall.rotation.y = Math.PI / 2;
+    rightWall.position.x = -ROOM_W / 2 - WALL_T / 2;
+    roomGroup.add(rightWall);
+
+    const rightWinGroup = new THREE.Group();
+    rightWinGroup.position.set(-ROOM_W / 2 - WALL_T / 2, rightWinCenterY, 0);
+    rightWinGroup.rotation.y = Math.PI / 2;
+    roomGroup.add(rightWinGroup);
+
+    const rwBar = 0.065;
+    const rwTop = new THREE.Mesh(new THREE.BoxGeometry(rightWinW, rwBar, frameDepth), frameMat);
+    rwTop.position.y = rightWinH / 2 - rwBar / 2;
+    const rwBot = new THREE.Mesh(new THREE.BoxGeometry(rightWinW, rwBar, frameDepth + 0.04), frameMat);
+    rwBot.position.y = -rightWinH / 2 + rwBar / 2;
+    const rwL = new THREE.Mesh(new THREE.BoxGeometry(rwBar, rightWinH, frameDepth), frameMat);
+    rwL.position.x = -rightWinW / 2 + rwBar / 2;
+    const rwR = rwL.clone();
+    rwR.position.x = rightWinW / 2 - rwBar / 2;
+    rightWinGroup.add(rwTop, rwBot, rwL, rwR);
+
+    const rightWindowSash = new THREE.Group();
+    rightWindowSash.position.set(0, rightWinH / 2 - rwBar, 0);
+    const rwGlass = new THREE.Mesh(
+      new THREE.PlaneGeometry(rightWinW - rwBar * 2, rightWinH - rwBar * 2),
+      glassMat
+    );
+    rwGlass.position.y = -(rightWinH - rwBar * 2) / 2;
+    rightWindowSash.add(rwGlass);
+    rightWinGroup.add(rightWindowSash);
+
+    const blankLeftWallMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(ROOM_D, ROOM_H, WALL_T),
+      wallMat
+    );
+    blankLeftWallMesh.rotation.y = -Math.PI / 2;
+    blankLeftWallMesh.position.set(ROOM_W / 2 + WALL_T / 2, ROOM_H / 2, 0);
+    blankLeftWallMesh.castShadow = true;
+    blankLeftWallMesh.receiveShadow = true;
+    roomGroup.add(blankLeftWallMesh);
+
+    function applyCutawayAppearance() {
+      ceilingGroup.visible = !state.cutaway;
+      blankLeftWallMesh.material = state.cutaway ? blankCutawayWallMat : wallMat;
+      blankLeftWallMesh.castShadow = !state.cutaway;
+    }
+    applyCutawayAppearance();
+
+    // =========================================================================
+    // 4. 3D EULERIAN MAC-GRID AIRFLOW SOLVER (36 x 11 x 40)
+    // =========================================================================
+    const NX = 36;
+    const NY = 11;
+    const NZ = 40;
+    const dx = ROOM_W / NX; // 0.30m
+    const dy = ROOM_H / NY; // 0.30m
+    const dz = ROOM_D / NZ; // 0.30m
+
+    const u = new Float32Array((NX + 1) * NY * NZ);
+    const v = new Float32Array(NX * (NY + 1) * NZ);
+    const w = new Float32Array(NX * NY * (NZ + 1));
+
+    const uTmp = new Float32Array(u.length);
+    const vTmp = new Float32Array(v.length);
+    const wTmp = new Float32Array(w.length);
+
+    const p = new Float32Array(NX * NY * NZ);
+    const div = new Float32Array(NX * NY * NZ);
+
+    const idxU = (i, j, k) => i + (NX + 1) * (j + NY * k);
+    const idxV = (i, j, k) => i + NX * (j + (NY + 1) * k);
+    const idxW = (i, j, k) => i + NX * (j + NY * k);
+    const idxP = (i, j, k) => i + NX * (j + NY * k);
+
+    const fan1GridX = (fanLeftCenterX + ROOM_W / 2) / dx;
+    const fan2GridX = (fanRightCenterX + ROOM_W / 2) / dx;
+    const fanGridY = fanCenterY / dy;
+    const fanRadiusCells = 1.5;
+
+    function isFanFace(i, j) {
+      const d1 = Math.hypot(i + 0.5 - fan1GridX, j + 0.5 - fanGridY);
+      if (d1 <= fanRadiusCells) return 1;
+      const d2 = Math.hypot(i + 0.5 - fan2GridX, j + 0.5 - fanGridY);
+      if (d2 <= fanRadiusCells) return 2;
+      return 0;
+    }
+
+    function isRightWindowCell(j, k) {
+      return j >= 3 && j <= 9 && k >= 6 && k <= 33;
+    }
+
+    // Only the Right-side Front Door remains (-4.55m -> x: 0.35..1.35 -> i: 1..4)
+    function isFrontDoorCell(i, j) {
+      return j <= 6 && i >= 1 && i <= 4;
+    }
+
+    function isPassiveLeak(i, j) {
+      return j === 0 && i >= 1 && i <= 4;
+    }
+
+    function applyBoundaryConditions() {
+      for (let k = 0; k < NZ; k++) {
+        for (let i = 0; i < NX; i++) {
+          v[idxV(i, 0, k)] = 0;
+          v[idxV(i, NY, k)] = 0;
+        }
+      }
+
+      for (let k = 0; k < NZ; k++) {
+        for (let j = 0; j < NY; j++) {
+          u[idxU(NX, j, k)] = 0;
+          if (!state.rightWindowOpen || !isRightWindowCell(j, k)) {
+            u[idxU(0, j, k)] = 0;
+          }
+        }
+      }
+
+      const maxFanVel = 4.2;
+      for (let j = 0; j < NY; j++) {
+        for (let i = 0; i < NX; i++) {
+          const fanId = isFanFace(i, j);
+          if (fanId === 1) {
+            const vel = state.leftFan.speed * state.leftFan.dir * maxFanVel;
+            w[idxW(i, j, 0)] = vel;
+            if (vel > 0.1) {
+              const rx = i + 0.5 - fan1GridX;
+              const ry = j + 0.5 - fanGridY;
+              u[idxU(i, j, 0)] += -ry * 0.2 * vel;
+              v[idxV(i, j, 0)] += rx * 0.2 * vel;
+            }
+          } else if (fanId === 2) {
+            const vel = state.rightFan.speed * state.rightFan.dir * maxFanVel;
+            w[idxW(i, j, 0)] = vel;
+            if (vel > 0.1) {
+              const rx = i + 0.5 - fan2GridX;
+              const ry = j + 0.5 - fanGridY;
+              u[idxU(i, j, 0)] += -ry * 0.2 * vel;
+              v[idxV(i, j, 0)] += rx * 0.2 * vel;
+            }
+          } else {
+            w[idxW(i, j, 0)] = 0;
+          }
+
+          const doorOpen = state.doorOpen && isFrontDoorCell(i, j);
+          const leakOpen = !state.doorOpen && !state.rightWindowOpen && isPassiveLeak(i, j);
+          if (!doorOpen && !leakOpen) {
+            w[idxW(i, j, NZ)] = 0;
+          }
+        }
+      }
+    }
+
+    function addForces() {
+      const jetReach = 5;
+      const maxFanVel = 4.2;
+      for (let j = 0; j < NY; j++) {
+        for (let i = 0; i < NX; i++) {
+          const f = isFanFace(i, j);
+          if (f === 1 && state.leftFan.speed > 0.02) {
+            const vel = state.leftFan.speed * state.leftFan.dir * maxFanVel;
+            if (vel > 0) {
+              for (let k = 1; k <= jetReach; k++) {
+                w[idxW(i, j, k)] += (vel - w[idxW(i, j, k)]) * 0.14;
+              }
+            }
+          } else if (f === 2 && state.rightFan.speed > 0.02) {
+            const vel = state.rightFan.speed * state.rightFan.dir * maxFanVel;
+            if (vel > 0) {
+              for (let k = 1; k <= jetReach; k++) {
+                w[idxW(i, j, k)] += (vel - w[idxW(i, j, k)]) * 0.14;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    function sampleVelocity(x, y, z) {
+      const cx = THREE.MathUtils.clamp(x / dx, 0.001, NX - 0.001);
+      const cy = THREE.MathUtils.clamp(y / dy, 0.001, NY - 0.001);
+      const cz = THREE.MathUtils.clamp(z / dz, 0.001, NZ - 0.001);
+
+      const ui = Math.min(Math.floor(cx), NX - 1);
+      const uj = THREE.MathUtils.clamp(Math.floor(cy - 0.5), 0, NY - 2);
+      const uk = THREE.MathUtils.clamp(Math.floor(cz - 0.5), 0, NZ - 2);
+      const tx = cx - ui;
+      const ty = THREE.MathUtils.clamp(cy - 0.5 - uj, 0, 1);
+      const tz = THREE.MathUtils.clamp(cz - 0.5 - uk, 0, 1);
+
+      const valU =
+        (1 - tx) * (1 - ty) * (1 - tz) * u[idxU(ui, uj, uk)] +
+        tx * (1 - ty) * (1 - tz) * u[idxU(ui + 1, uj, uk)] +
+        (1 - tx) * ty * (1 - tz) * u[idxU(ui, uj + 1, uk)] +
+        tx * ty * (1 - tz) * u[idxU(ui + 1, uj + 1, uk)] +
+        (1 - tx) * (1 - ty) * tz * u[idxU(ui, uj, uk + 1)] +
+        tx * (1 - ty) * tz * u[idxU(ui + 1, uj, uk + 1)] +
+        (1 - tx) * ty * tz * u[idxU(ui, uj + 1, uk + 1)] +
+        tx * ty * tz * u[idxU(ui + 1, uj + 1, uk + 1)];
+
+      const vi = THREE.MathUtils.clamp(Math.floor(cx - 0.5), 0, NX - 2);
+      const vj = Math.min(Math.floor(cy), NY - 1);
+      const vk = THREE.MathUtils.clamp(Math.floor(cz - 0.5), 0, NZ - 2);
+      const vtx = THREE.MathUtils.clamp(cx - 0.5 - vi, 0, 1);
+      const vty = cy - vj;
+      const vtz = THREE.MathUtils.clamp(cz - 0.5 - vk, 0, 1);
+
+      const valV =
+        (1 - vtx) * (1 - vty) * (1 - vtz) * v[idxV(vi, vj, vk)] +
+        vtx * (1 - vty) * (1 - vtz) * v[idxV(vi + 1, vj, vk)] +
+        (1 - vtx) * vty * (1 - vtz) * v[idxV(vi, vj + 1, vk)] +
+        vtx * vty * (1 - vtz) * v[idxV(vi + 1, vj + 1, vk)] +
+        (1 - vtx) * (1 - vty) * vtz * v[idxV(vi, vj, vk + 1)] +
+        vtx * (1 - vty) * vtz * v[idxV(vi + 1, vj, vk + 1)] +
+        (1 - vtx) * vty * vtz * v[idxV(vi, vj + 1, vk + 1)] +
+        vtx * vty * vtz * v[idxV(vi + 1, vj + 1, vk + 1)];
+
+      const wi = THREE.MathUtils.clamp(Math.floor(cx - 0.5), 0, NX - 2);
+      const wj = THREE.MathUtils.clamp(Math.floor(cy - 0.5), 0, NY - 2);
+      const wk = Math.min(Math.floor(cz), NZ - 1);
+      const wtx = THREE.MathUtils.clamp(cx - 0.5 - wi, 0, 1);
+      const wty = THREE.MathUtils.clamp(cy - 0.5 - wj, 0, 1);
+      const wtz = cz - wk;
+
+      const valW =
+        (1 - wtx) * (1 - wty) * (1 - wtz) * w[idxW(wi, wj, wk)] +
+        wtx * (1 - wty) * (1 - wtz) * w[idxW(wi + 1, wj, wk)] +
+        (1 - wtx) * wty * (1 - wtz) * w[idxW(wi, wj + 1, wk)] +
+        wtx * wty * (1 - wtz) * w[idxW(wi + 1, wj + 1, wk)] +
+        (1 - wtx) * (1 - wty) * wtz * w[idxW(wi, wj, wk + 1)] +
+        wtx * (1 - wty) * wtz * w[idxW(wi + 1, wj, wk + 1)] +
+        (1 - wtx) * wty * wtz * w[idxW(wi, wj + 1, wk + 1)] +
+        wtx * wty * wtz * w[idxW(wi + 1, wj + 1, wk + 1)];
+
+      return [valU, valV, valW];
+    }
+
+    function advectAndDiffuse(dt) {
+      const damping = 0.994;
+
+      for (let k = 0; k < NZ; k++) {
+        for (let j = 0; j < NY; j++) {
+          for (let i = 0; i <= NX; i++) {
+            const x = i * dx;
+            const y = (j + 0.5) * dy;
+            const z = (k + 0.5) * dz;
+            const [vx, vy, vz] = sampleVelocity(x, y, z);
+            const [bx] = sampleVelocity(x - vx * dt, y - vy * dt, z - vz * dt);
+            uTmp[idxU(i, j, k)] = bx * damping;
+          }
+        }
+      }
+
+      for (let k = 0; k < NZ; k++) {
+        for (let j = 0; j <= NY; j++) {
+          for (let i = 0; i < NX; i++) {
+            const x = (i + 0.5) * dx;
+            const y = j * dy;
+            const z = (k + 0.5) * dz;
+            const [vx, vy, vz] = sampleVelocity(x, y, z);
+            const [, by] = sampleVelocity(x - vx * dt, y - vy * dt, z - vz * dt);
+            vTmp[idxV(i, j, k)] = by * damping;
+          }
+        }
+      }
+
+      for (let k = 0; k <= NZ; k++) {
+        for (let j = 0; j < NY; j++) {
+          for (let i = 0; i < NX; i++) {
+            const x = (i + 0.5) * dx;
+            const y = (j + 0.5) * dy;
+            const z = k * dz;
+            const [vx, vy, vz] = sampleVelocity(x, y, z);
+            const [, , bz] = sampleVelocity(x - vx * dt, y - vy * dt, z - vz * dt);
+            wTmp[idxW(i, j, k)] = bz * damping;
+          }
+        }
+      }
+
+      u.set(uTmp);
+      v.set(vTmp);
+      w.set(wTmp);
+    }
+
+    function project() {
+      const h = dx;
+
+      for (let k = 0; k < NZ; k++) {
+        for (let j = 0; j < NY; j++) {
+          for (let i = 0; i < NX; i++) {
+            div[idxP(i, j, k)] =
+              (u[idxU(i + 1, j, k)] - u[idxU(i, j, k)]) / dx +
+              (v[idxV(i, j + 1, k)] - v[idxV(i, j, k)]) / dy +
+              (w[idxW(i, j, k + 1)] - w[idxW(i, j, k)]) / dz;
+          }
+        }
+      }
+
+      for (let iter = 0; iter < 18; iter++) {
+        for (let k = 0; k < NZ; k++) {
+          for (let j = 0; j < NY; j++) {
+            for (let i = 0; i < NX; i++) {
+              let pSum = 0;
+              let count = 0;
+
+              if (i > 0) {
+                pSum += p[idxP(i - 1, j, k)];
+                count++;
+              } else if (state.rightWindowOpen && isRightWindowCell(j, k)) {
+                count++;
+              }
+
+              if (i < NX - 1) {
+                pSum += p[idxP(i + 1, j, k)];
+                count++;
+              }
+
+              if (j > 0) {
+                pSum += p[idxP(i, j - 1, k)];
+                count++;
+              }
+              if (j < NY - 1) {
+                pSum += p[idxP(i, j + 1, k)];
+                count++;
+              }
+
+              if (k > 0) {
+                pSum += p[idxP(i, j, k - 1)];
+                count++;
+              }
+              if (k < NZ - 1) {
+                pSum += p[idxP(i, j, k + 1)];
+                count++;
+              } else if (
+                (state.doorOpen && isFrontDoorCell(i, j)) ||
+                (!state.doorOpen && !state.rightWindowOpen && isPassiveLeak(i, j))
+              ) {
+                count++;
+              }
+
+              if (count > 0) {
+                p[idxP(i, j, k)] = (pSum - div[idxP(i, j, k)] * h * h) / count;
+              }
+            }
+          }
+        }
+      }
+
+      for (let k = 0; k < NZ; k++) {
+        for (let j = 0; j < NY; j++) {
+          for (let i = 1; i < NX; i++) {
+            u[idxU(i, j, k)] -= (p[idxP(i, j, k)] - p[idxP(i - 1, j, k)]) / dx;
+          }
+          if (state.rightWindowOpen && isRightWindowCell(j, k)) {
+            u[idxU(0, j, k)] -= (p[idxP(0, j, k)] - 0) / dx;
+          }
+        }
+      }
+
+      for (let k = 0; k < NZ; k++) {
+        for (let j = 1; j < NY; j++) {
+          for (let i = 0; i < NX; i++) {
+            v[idxV(i, j, k)] -= (p[idxP(i, j, k)] - p[idxP(i, j - 1, k)]) / dy;
+          }
+        }
+      }
+
+      for (let k = 1; k < NZ; k++) {
+        for (let j = 0; j < NY; j++) {
+          for (let i = 0; i < NX; i++) {
+            w[idxW(i, j, k)] -= (p[idxP(i, j, k)] - p[idxP(i, j, k - 1)]) / dz;
+          }
+        }
+      }
+
+      for (let j = 0; j < NY; j++) {
+        for (let i = 0; i < NX; i++) {
+          if (
+            (state.doorOpen && isFrontDoorCell(i, j)) ||
+            (!state.doorOpen && !state.rightWindowOpen && isPassiveLeak(i, j))
+          ) {
+            w[idxW(i, j, NZ)] -= (0 - p[idxP(i, j, NZ - 1)]) / dz;
+          }
+        }
+      }
+    }
+
+    function stepFluid(dt) {
+      applyBoundaryConditions();
+      addForces();
+      advectAndDiffuse(dt);
+      applyBoundaryConditions();
+      project();
+      applyBoundaryConditions();
+    }
+
+    // =========================================================================
+    // 5. AIRFLOW STREAMLINES & VELOCITY VECTOR GRID
+    // =========================================================================
+    const PARTICLE_COUNT = 2800;
+    const pPos = new Float32Array(PARTICLE_COUNT * 3);
+    const pAge = new Float32Array(PARTICLE_COUNT);
+    const pMaxAge = new Float32Array(PARTICLE_COUNT);
+
+    const streakPositions = new Float32Array(PARTICLE_COUNT * 2 * 3);
+    const streakColors = new Float32Array(PARTICLE_COUNT * 2 * 3);
+
+    const streakGeo = new THREE.BufferGeometry();
+    streakGeo.setAttribute("position", new THREE.BufferAttribute(streakPositions, 3));
+    streakGeo.setAttribute("color", new THREE.BufferAttribute(streakColors, 3));
+
+    const streakMat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const streakMesh = new THREE.LineSegments(streakGeo, streakMat);
+    scene.add(streakMesh);
+
+    function speedToColor(speed, outColor) {
+      const t = THREE.MathUtils.clamp(speed / 2.2, 0, 1);
+      if (t < 0.35) {
+        const s = t / 0.35;
+        outColor.setRGB(0.12 * (1 - s), 0.35 + 0.4 * s, 0.92);
+      } else if (t < 0.65) {
+        const s = (t - 0.35) / 0.3;
+        outColor.setRGB(0.1 + 0.1 * s, 0.75 + 0.12 * s, 0.92 * (1 - s) + 0.35 * s);
+      } else if (t < 0.85) {
+        const s = (t - 0.65) / 0.2;
+        outColor.setRGB(0.2 + 0.75 * s, 0.87 - 0.22 * s, 0.35 * (1 - s));
+      } else {
+        const s = (t - 0.85) / 0.15;
+        outColor.setRGB(0.95, 0.65 - 0.42 * s, 0.12 * (1 - s));
+      }
+    }
+
+    function spawnParticle(idx, randomInit = false) {
+      const r = Math.random();
+      let x, y, z;
+
+      if (randomInit) {
+        x = Math.random() * ROOM_W;
+        y = 0.1 + Math.random() * (ROOM_H - 0.2);
+        z = Math.random() * ROOM_D;
+      } else {
+        const leftIn = state.leftFan.dir > 0 && state.leftFan.speed > 0.1;
+        const rightIn = state.rightFan.dir > 0 && state.rightFan.speed > 0.1;
+
+        if ((leftIn || rightIn) && r < 0.45) {
+          const useLeft = leftIn && (!rightIn || Math.random() < 0.5);
+          const fx = (useLeft ? fanLeftCenterX : fanRightCenterX) + ROOM_W / 2;
+          const angle = Math.random() * Math.PI * 2;
+          const rad = Math.random() * 0.35;
+          x = fx + Math.cos(angle) * rad;
+          y = fanCenterY + Math.sin(angle) * rad;
+          z = 0.08 + Math.random() * 0.12;
+        } else if (state.doorOpen && r < 0.75) {
+          x = doorRightX + ROOM_W / 2 + (Math.random() - 0.5) * 0.85;
+          y = 0.15 + Math.random() * 1.95;
+          z = ROOM_D - 0.08 - Math.random() * 0.12;
+        } else if (state.rightWindowOpen && r < 0.88) {
+          x = 0.08;
+          y = 0.95 + Math.random() * 2.05;
+          z = 1.9 + Math.random() * 8.2;
+        } else {
+          x = 0.15 + Math.random() * (ROOM_W - 0.3);
+          y = 0.15 + Math.random() * (ROOM_H - 0.3);
+          z = 0.15 + Math.random() * (ROOM_D - 0.3);
+        }
+      }
+
+      pPos[idx * 3] = x;
+      pPos[idx * 3 + 1] = y;
+      pPos[idx * 3 + 2] = z;
+      pAge[idx] = randomInit ? Math.random() * 4 : 0;
+      pMaxAge[idx] = 4.0 + Math.random() * 5.0;
+    }
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      spawnParticle(i, true);
+    }
+
+    const tmpColor = new THREE.Color();
+    function updateParticles(dt) {
+      streakMesh.visible = state.showParticles;
+      if (!state.showParticles) return;
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        pAge[i] += dt;
+        let x = pPos[i * 3];
+        let y = pPos[i * 3 + 1];
+        let z = pPos[i * 3 + 2];
+
+        const [vx, vy, vz] = sampleVelocity(x, y, z);
+        const speed = Math.hypot(vx, vy, vz);
+
+        x += vx * dt * 1.4;
+        y += vy * dt * 1.4;
+        z += vz * dt * 1.4;
+
+        if (
+          pAge[i] > pMaxAge[i] ||
+          x < 0.02 || x > ROOM_W - 0.02 ||
+          y < 0.02 || y > ROOM_H - 0.02 ||
+          z < 0.02 || z > ROOM_D - 0.02
+        ) {
+          spawnParticle(i, false);
+          x = pPos[i * 3];
+          y = pPos[i * 3 + 1];
+          z = pPos[i * 3 + 2];
+        } else {
+          pPos[i * 3] = x;
+          pPos[i * 3 + 1] = y;
+          pPos[i * 3 + 2] = z;
+        }
+
+        const wx = x - ROOM_W / 2;
+        const wy = y;
+        const wz = z - ROOM_D / 2;
+
+        const tailScale = 0.14 + Math.min(speed * 0.1, 0.36);
+        const inv = speed > 0.001 ? 1 / speed : 0;
+        const tx = wx - vx * inv * tailScale;
+        const ty = wy - vy * inv * tailScale;
+        const tz = wz - vz * inv * tailScale;
+
+        const vIdx = i * 6;
+        streakPositions[vIdx] = tx;
+        streakPositions[vIdx + 1] = ty;
+        streakPositions[vIdx + 2] = tz;
+        streakPositions[vIdx + 3] = wx;
+        streakPositions[vIdx + 4] = wy;
+        streakPositions[vIdx + 5] = wz;
+
+        speedToColor(speed, tmpColor);
+        streakColors[vIdx] = tmpColor.r * 0.25;
+        streakColors[vIdx + 1] = tmpColor.g * 0.25;
+        streakColors[vIdx + 2] = tmpColor.b * 0.25;
+        streakColors[vIdx + 3] = tmpColor.r;
+        streakColors[vIdx + 4] = tmpColor.g;
+        streakColors[vIdx + 5] = tmpColor.b;
+      }
+
+      streakGeo.attributes.position.needsUpdate = true;
+      streakGeo.attributes.color.needsUpdate = true;
+    }
+
+    // 3D Velocity Vector Arrows
+    const arrowPoints = [];
+    for (let i = 2; i < NX; i += 4) {
+      for (let j = 1; j < NY; j += 2) {
+        for (let k = 2; k < NZ; k += 4) {
+          arrowPoints.push([
+            (i + 0.5) * dx,
+            (j + 0.5) * dy,
+            (k + 0.5) * dz
+          ]);
+        }
+      }
+    }
+
+    const arrowGeo = new THREE.ConeGeometry(0.055, 0.24, 6);
+    arrowGeo.translate(0, 0.12, 0);
+    const arrowMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const arrowInst = new THREE.InstancedMesh(arrowGeo, arrowMat, arrowPoints.length);
+    arrowInst.visible = false;
+    scene.add(arrowInst);
+
+    const dummyObj = new THREE.Object3D();
+    const upVec = new THREE.Vector3(0, 1, 0);
+    const dirVec = new THREE.Vector3();
+
+    function updateVectorArrows() {
+      arrowInst.visible = state.showVectors;
+      if (!state.showVectors) return;
+
+      for (let idx = 0; idx < arrowPoints.length; idx++) {
+        const [x, y, z] = arrowPoints[idx];
+        const [vx, vy, vz] = sampleVelocity(x, y, z);
+        const speed = Math.hypot(vx, vy, vz);
+
+        dummyObj.position.set(x - ROOM_W / 2, y, z - ROOM_D / 2);
+        if (speed > 0.015) {
+          dirVec.set(vx, vy, vz).normalize();
+          dummyObj.quaternion.setFromUnitVectors(upVec, dirVec);
+          const sc = THREE.MathUtils.clamp(0.45 + speed * 0.85, 0.45, 2.5);
+          dummyObj.scale.set(0.85, sc, 0.85);
+        } else {
+          dummyObj.scale.set(0, 0, 0);
+        }
+        dummyObj.updateMatrix();
+        arrowInst.setMatrixAt(idx, dummyObj.matrix);
+
+        speedToColor(speed, tmpColor);
+        arrowInst.setColorAt(idx, tmpColor);
+      }
+
+      arrowInst.instanceMatrix.needsUpdate = true;
+      if (arrowInst.instanceColor) arrowInst.instanceColor.needsUpdate = true;
+    }
+
+    // =========================================================================
+    // 6. UI BINDINGS & CAMERA PRESETS
+    // =========================================================================
+    const elLeftSpeed = document.getElementById("left-speed");
+    const elRightSpeed = document.getElementById("right-speed");
+    const elLeftVal = document.getElementById("left-speed-val");
+    const elRightVal = document.getElementById("right-speed-val");
+    const elLeftDir = document.getElementById("left-dir");
+    const elRightDir = document.getElementById("right-dir");
+
+    function syncUI() {
+      elLeftSpeed.value = Math.round(state.leftFan.speed * 100);
+      elRightSpeed.value = Math.round(state.rightFan.speed * 100);
+      elLeftVal.textContent = `${elLeftSpeed.value}%`;
+      elRightVal.textContent = `${elRightSpeed.value}%`;
+
+      elLeftDir.textContent = state.leftFan.dir < 0 ? "EXHAUST (OUT)" : "INTAKE (IN)";
+      elLeftDir.className = `dir-pill ${state.leftFan.dir < 0 ? "dir-exhaust" : "dir-intake"}`;
+
+      elRightDir.textContent = state.rightFan.dir < 0 ? "EXHAUST (OUT)" : "INTAKE (IN)";
+      elRightDir.className = `dir-pill ${state.rightFan.dir < 0 ? "dir-exhaust" : "dir-intake"}`;
+    }
+
+    const presetButtons = ["preset-exhaust", "preset-intake", "preset-pushpull", "preset-off"];
+    function setActivePreset(activeId) {
+      presetButtons.forEach((id) => {
+        document.getElementById(id).classList.toggle("active", id === activeId);
+      });
+    }
+
+    document.getElementById("preset-exhaust").onclick = () => {
+      state.leftFan = { speed: 0.85, dir: -1 };
+      state.rightFan = { speed: 0.85, dir: -1 };
+      setActivePreset("preset-exhaust");
+      syncUI();
+    };
+    document.getElementById("preset-intake").onclick = () => {
+      state.leftFan = { speed: 0.85, dir: 1 };
+      state.rightFan = { speed: 0.85, dir: 1 };
+      setActivePreset("preset-intake");
+      syncUI();
+    };
+    document.getElementById("preset-pushpull").onclick = () => {
+      state.leftFan = { speed: 0.9, dir: 1 };
+      state.rightFan = { speed: 0.9, dir: -1 };
+      setActivePreset("preset-pushpull");
+      syncUI();
+    };
+    document.getElementById("preset-off").onclick = () => {
+      state.leftFan.speed = 0;
+      state.rightFan.speed = 0;
+      setActivePreset("preset-off");
+      syncUI();
+    };
+
+    elLeftSpeed.oninput = (e) => {
+      state.leftFan.speed = Number(e.target.value) / 100;
+      setActivePreset("");
+      syncUI();
+    };
+    elRightSpeed.oninput = (e) => {
+      state.rightFan.speed = Number(e.target.value) / 100;
+      setActivePreset("");
+      syncUI();
+    };
+    elLeftDir.onclick = () => {
+      state.leftFan.dir *= -1;
+      setActivePreset("");
+      syncUI();
+    };
+    elRightDir.onclick = () => {
+      state.rightFan.dir *= -1;
+      setActivePreset("");
+      syncUI();
+    };
+
+    document.getElementById("toggle-door").onchange = (e) => {
+      state.doorOpen = e.target.checked;
+    };
+    document.getElementById("toggle-right-window").onchange = (e) => {
+      state.rightWindowOpen = e.target.checked;
+    };
+    document.getElementById("toggle-cutaway").onchange = (e) => {
+      state.cutaway = e.target.checked;
+      applyCutawayAppearance();
+    };
+    document.getElementById("toggle-particles").onchange = (e) => {
+      state.showParticles = e.target.checked;
+    };
+    document.getElementById("toggle-vectors").onchange = (e) => {
+      state.showVectors = e.target.checked;
+    };
+
+    // Camera Presets
+    const camButtons = ["cam-iso", "cam-front", "cam-back", "cam-plan"];
+    function setCamView(id, pos, target, forceCutaway) {
+      camButtons.forEach((b) => document.getElementById(b).classList.toggle("active", b === id));
+      camera.position.set(...pos);
+      controls.target.set(...target);
+      controls.update();
+
+      if (typeof forceCutaway === "boolean") {
+        state.cutaway = forceCutaway;
+        document.getElementById("toggle-cutaway").checked = forceCutaway;
+        applyCutawayAppearance();
+      }
+    }
+
+    document.getElementById("cam-iso").onclick = () =>
+      setCamView("cam-iso", [12.5, 8.2, 2.2], [-0.5, 1.4, 0], true);
+
+    document.getElementById("cam-front").onclick = () =>
+      setCamView("cam-front", [0, 1.7, -3.8], [0, 1.5, 5.9], false);
+
+    document.getElementById("cam-back").onclick = () =>
+      setCamView("cam-back", [0, 1.7, 3.8], [0, 1.7, -5.9], false);
+
+    document.getElementById("cam-plan").onclick = () =>
+      setCamView("cam-plan", [0, 17.5, 0.01], [0, 0, 0], true);
+
+    document.getElementById("collapse-btn").onclick = () => {
+      const panel = document.getElementById("control-panel");
+      panel.classList.toggle("collapsed");
+      document.getElementById("collapse-btn").textContent =
+        panel.classList.contains("collapsed") ? "Menu" : "Hide";
+    };
+
+    // =========================================================================
+    // 7. ANIMATION LOOP & TELEMETRY
+    // =========================================================================
+    const elFlow = document.getElementById("stat-flow");
+    const elAch = document.getElementById("stat-ach");
+    const elVel = document.getElementById("stat-vel");
+
+    let lastTime = performance.now();
+    let statsTimer = 0;
+
+    function updateTelemetry() {
+      const fanArea = Math.PI * 0.41 * 0.41;
+      const qLeft = state.leftFan.speed * 4.2 * fanArea * 3600;
+      const qRight = state.rightFan.speed * 4.2 * fanArea * 3600;
+
+      const hasIntake = state.doorOpen || state.rightWindowOpen;
+      const restriction = hasIntake ? 1.0 : 0.14;
+      const totalM3h = (qLeft + qRight) * restriction;
+
+      const roomVol = ROOM_W * ROOM_H * ROOM_D; // 427.7 m³
+      const ach = totalM3h / roomVol;
+
+      let sumSpeed = 0;
+      let samples = 0;
+      for (let k = 1; k < NZ - 1; k += 2) {
+        for (let j = 1; j < NY - 1; j += 2) {
+          for (let i = 1; i < NX - 1; i += 2) {
+            const vx = 0.5 * (u[idxU(i, j, k)] + u[idxU(i + 1, j, k)]);
+            const vy = 0.5 * (v[idxV(i, j, k)] + v[idxV(i, j + 1, k)]);
+            const vz = 0.5 * (w[idxW(i, j, k)] + w[idxW(i, j, k + 1)]);
+            sumSpeed += Math.hypot(vx, vy, vz);
+            samples++;
+          }
+        }
+      }
+      const meanVel = samples > 0 ? sumSpeed / samples : 0;
+
+      elFlow.textContent = `${Math.round(totalM3h)} m³/h`;
+      elAch.textContent = `${ach.toFixed(1)} ACH`;
+      elVel.textContent = `${meanVel.toFixed(2)} m/s`;
+    }
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((now - lastTime) / 1000, 0.04);
+      lastTime = now;
+
+      leftFanMesh.rotor.rotation.z += state.leftFan.speed * state.leftFan.dir * dt * 26;
+      rightFanMesh.rotor.rotation.z += state.rightFan.speed * state.rightFan.dir * dt * 26;
+
+      const targetRightDoorAngle = state.doorOpen ? 1.35 : 0;
+      rightDoorPivot.rotation.y += (targetRightDoorAngle - rightDoorPivot.rotation.y) * 0.14;
+
+      const targetWinTilt = state.rightWindowOpen ? 0.35 : 0;
+      rightWindowSash.rotation.x += (targetWinTilt - rightWindowSash.rotation.x) * 0.12;
+
+      stepFluid(0.032);
+      updateParticles(dt);
+      updateVectorArrows();
+
+      statsTimer += dt;
+      if (statsTimer > 0.25) {
+        updateTelemetry();
+        statsTimer = 0;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    syncUI();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
